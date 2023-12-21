@@ -195,6 +195,13 @@ export class BillingService {
     return await this.stripeClient.customers.update(customerId, params);
   }
 
+  async getOneProduct(productId: string) {
+    const params = {
+      expand: ['default_price'],
+    };
+    return await this.stripeClient.products.retrieve(productId, params);
+  }
+
   async getAllProducts(
     filters: Stripe.ProductListParams,
     limit: number,

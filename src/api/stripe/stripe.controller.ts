@@ -31,11 +31,8 @@ import { UpdateProductDto } from 'src/lib/dto/update-product.dto';
 @Controller('api/stripe')
 export class StripeController {
   constructor(private readonly billingService: BillingService) {}
-  @KeycloakRoles([
-    KeycloakAvailableRoles.SUPERADMIN,
-    KeycloakAvailableRoles.INSURER,
-    KeycloakAvailableRoles.USER,
-  ])
+
+  @KeycloakAuthIgnore(true)
   @Get('product')
   findAll(
     @PaginatedWithAfterId() pagination: PaginationWithAfterId,
@@ -54,6 +51,12 @@ export class StripeController {
       pagination.limit,
       pagination.startAfterId,
     );
+  }
+
+  @KeycloakAuthIgnore(true)
+  @Get('product/:id')
+  findOne(@Param('id') productId: string) {
+    return this.billingService.getOneProduct(productId);
   }
 
   @KeycloakRoles([KeycloakAvailableRoles.SUPERADMIN])
@@ -80,7 +83,6 @@ export class StripeController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ) {
-    console.log(req.rawBody, signature, req.headers);
     return this.billingService.handleWebhookEvents(signature, req.rawBody);
   }
 }
