@@ -23,6 +23,8 @@ import {
   PaginatedWithAfterId,
   PaginationWithAfterId,
 } from 'src/lib/decorators/pagination-with-after-id.decorator';
+import { CreateCheckoutUrl } from 'src/lib/dto/create-checkout-url.dto';
+import { CreateCustomer } from 'src/lib/dto/create-customer.dto';
 import { CreateProductDto } from 'src/lib/dto/create-product.dto';
 import { FindAllProductDto } from 'src/lib/dto/find-all-product.dto';
 import { UpdateProductDto } from 'src/lib/dto/update-product.dto';
@@ -75,6 +77,21 @@ export class StripeController {
   @Delete('product/:id')
   delete(@Param('id') id: string) {
     return this.billingService.archiveProduct(id);
+  }
+
+  @KeycloakAuthIgnore(true)
+  @Post('customer')
+  createCustomer(@Body() createCustomer: CreateCustomer) {
+    return this.billingService.createCustomer({
+      name: createCustomer.fullName,
+      email: createCustomer.email,
+    });
+  }
+
+  @KeycloakAuthIgnore(true)
+  @Post('checkout')
+  createCheckoutUrl(@Body() createCheckoutUrl: CreateCheckoutUrl) {
+    return this.billingService.createCheckoutUrl(createCheckoutUrl);
   }
 
   @KeycloakAuthIgnore(true)

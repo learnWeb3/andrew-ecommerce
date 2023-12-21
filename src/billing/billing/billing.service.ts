@@ -1,4 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  forwardRef,
+} from '@nestjs/common';
+import {
+  AndrewEcommerceCheckoutCanceledEvent,
+  AndrewEcommerceCheckoutCompletedEvent,
+} from 'andrew-events-schema';
+import { KafkaProducerService } from 'src/kafka-producer/kafka-producer/kafka-producer.service';
+import { CreateCheckoutUrl } from 'src/lib/dto/create-checkout-url.dto';
 import { CreateProductDto } from 'src/lib/dto/create-product.dto';
 import { UpdateProductDto } from 'src/lib/dto/update-product.dto';
 import { BillingDiscount } from 'src/lib/interfaces/billing-discount.enum';
@@ -8,8 +19,46 @@ import Stripe from 'stripe';
 export class BillingService {
   private stripeClient: Stripe;
 
+  constructor(
+    @Inject(forwardRef(() => KafkaProducerService))
+    private readonly kafkaProducerService: KafkaProducerService,
+  ) {}
+
   onModuleInit() {
     this.stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+
+  async createCheckoutUrl(
+    createCheckoutUrl: CreateCheckoutUrl,
+  ): Promise<{ url: string }> {
+    const errors = [];
+    const stripeCustomer = await this.getCustomer(createCheckoutUrl.customer);
+    const stripeProduct = await this.getProduct(createCheckoutUrl.product);
+    const productPrices = await this.getPriceByProductId(
+      createCheckoutUrl.product,
+    );
+    const stripePriceId = productPrices?.[0]?.id || null;
+
+    if (stripeCustomer) {
+      errors.push(`invalid stripe customer`);
+    }
+    if (stripeProduct) {
+      errors.push(`invalid stripe product`);
+    }
+    if (stripePriceId) {
+      errors.push(`invalid stripe price`);
+    }
+
+    if (errors.length) {
+      throw new BadRequestException(errors.join(', '));
+    }
+
+    return await this.createCheckoutSession(
+      stripePriceId,
+      createCheckoutUrl.quantity,
+      stripeCustomer.id,
+      createCheckoutUrl?.metadata || {},
+    );
   }
 
   async handleWebhookEvents(signature: string, data: Buffer) {
@@ -31,50 +80,77 @@ export class BillingService {
     // Handle the event
     switch (event.type) {
       /** CHECKOUT EVENTS */
-      case 'checkout.session.async_payment_failed':
-        const checkoutSessionAsyncPaymentFailed = event.data.object;
-        // Then define and call a function to handle the event checkout.session.async_payment_failed
-        break;
-      case 'checkout.session.async_payment_succeeded':
-        const checkoutSessionAsyncPaymentSucceeded = event.data.object;
-        // Then define and call a function to handle the event checkout.session.async_payment_succeeded
-        break;
       case 'checkout.session.completed':
         const checkoutSessionCompleted = event.data.object;
-        // Then define and call a function to handle the event checkout.session.completed
+        console.log(
+          `received stripe session completed event`,
+          JSON.stringify(checkoutSessionCompleted, null, 4),
+        );
+        try {
+          const newCheckoutCompletedEvent =
+            new AndrewEcommerceCheckoutCompletedEvent(
+              checkoutSessionCompleted.customer as string,
+              {
+                contract: checkoutSessionCompleted.metadata.contract,
+                customer: checkoutSessionCompleted.customer as string,
+              },
+            );
+          this.kafkaProducerService.emit(newCheckoutCompletedEvent);
+        } catch (error) {
+          console.log(error);
+        }
+
         break;
       case 'checkout.session.expired':
         const checkoutSessionExpired = event.data.object;
+        console.log(
+          `received stripe session expired event`,
+          JSON.stringify(checkoutSessionExpired, null, 4),
+        );
+        try {
+          const newCheckoutCanceledEvent =
+            new AndrewEcommerceCheckoutCanceledEvent(
+              checkoutSessionExpired.customer as string,
+              {
+                contract: checkoutSessionExpired.metadata.contract,
+                customer: checkoutSessionExpired.customer as string,
+              },
+            );
+          this.kafkaProducerService.emit(newCheckoutCanceledEvent);
+        } catch (error) {
+          console.log(error);
+        }
+
       // Then define and call a function to handle the event checkout.session.expired
-      /** SUBSCRIPTION EVENTS */
-      case 'subscription_schedule.aborted':
-        const subscriptionScheduleAborted = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.aborted
-        break;
-      case 'subscription_schedule.canceled':
-        const subscriptionScheduleCanceled = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.canceled
-        break;
-      case 'subscription_schedule.completed':
-        const subscriptionScheduleCompleted = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.completed
-        break;
-      case 'subscription_schedule.created':
-        const subscriptionScheduleCreated = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.created
-        break;
-      case 'subscription_schedule.expiring':
-        const subscriptionScheduleExpiring = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.expiring
-        break;
-      case 'subscription_schedule.released':
-        const subscriptionScheduleReleased = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.released
-        break;
-      case 'subscription_schedule.updated':
-        const subscriptionScheduleUpdated = event.data.object;
-        // Then define and call a function to handle the event subscription_schedule.updated
-        break;
+      // /** SUBSCRIPTION EVENTS */
+      // case 'subscription_schedule.aborted':
+      //   const subscriptionScheduleAborted = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.aborted
+      //   break;
+      // case 'subscription_schedule.canceled':
+      //   const subscriptionScheduleCanceled = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.canceled
+      //   break;
+      // case 'subscription_schedule.completed':
+      //   const subscriptionScheduleCompleted = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.completed
+      //   break;
+      // case 'subscription_schedule.created':
+      //   const subscriptionScheduleCreated = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.created
+      //   break;
+      // case 'subscription_schedule.expiring':
+      //   const subscriptionScheduleExpiring = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.expiring
+      //   break;
+      // case 'subscription_schedule.released':
+      //   const subscriptionScheduleReleased = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.released
+      //   break;
+      // case 'subscription_schedule.updated':
+      //   const subscriptionScheduleUpdated = event.data.object;
+      //   // Then define and call a function to handle the event subscription_schedule.updated
+      //   break;
       default:
         console.log(`Unhandled event type ${event.type}`);
         break;
@@ -144,8 +220,11 @@ export class BillingService {
     return await this.stripeClient.products.create(params);
   }
 
-  async getProduct(productId: string) {
-    return await this.stripeClient.products.retrieve(productId);
+  async getProduct(
+    productId: string,
+    params: Stripe.ProductRetrieveParams = {},
+  ) {
+    return await this.stripeClient.products.retrieve(productId, params);
   }
 
   async updateProduct(productId: string, params: Stripe.ProductUpdateParams) {
@@ -180,12 +259,19 @@ export class BillingService {
       .then(({ data }) => data);
   }
 
-  async createCustomer(params: Stripe.CustomerCreateParams) {
-    return await this.stripeClient.customers.create(params);
+  async createCustomer(
+    params: Stripe.CustomerCreateParams,
+  ): Promise<{ id: string }> {
+    return await this.stripeClient.customers.create(params).then(({ id }) => ({
+      id,
+    }));
   }
 
-  async getCustomer(customerId: string) {
-    return await this.stripeClient.customers.retrieve(customerId);
+  async getCustomer(
+    customerId: string,
+    params: Stripe.CustomerRetrieveParams = {},
+  ) {
+    return await this.stripeClient.customers.retrieve(customerId, params);
   }
 
   async updateCustomer(
