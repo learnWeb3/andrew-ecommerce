@@ -1,22 +1,15 @@
 import {
-  IsEmail,
-  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
-import { EcommerceGateway } from '../interfaces/ecommerce-gateway.enum';
 
-export class CreateCheckoutUrlDto {
+export class CreateStripeCheckoutUrlDto {
   @IsNotEmpty()
-  @IsEnum(EcommerceGateway)
-  gateway: EcommerceGateway;
-
-  @IsNotEmpty()
-  @IsEmail()
-  customerEmail: string;
+  @IsString()
+  customer: string;
 
   @IsNotEmpty()
   @IsString()

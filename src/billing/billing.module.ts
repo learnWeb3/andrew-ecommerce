@@ -1,10 +1,10 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { BillingService } from './billing/billing.service';
+import { StripeBillingService } from './billing/stripe-billing.service';
 import { KafkaProducerModule } from 'src/kafka-producer/kafka-producer.module';
 
 @Module({
-  providers: [BillingService],
-  exports: [BillingService],
+  providers: [StripeBillingService],
+  exports: [StripeBillingService],
   imports: [forwardRef(() => KafkaProducerModule)],
 })
 export class BillingModule {}

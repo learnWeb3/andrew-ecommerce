@@ -7,9 +7,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { BillingPeriodicity } from '../interfaces/billing-periodicity.enum';
-import { EcommerceGateway } from '../interfaces/ecommerce-gateway.enum';
 
-export class CreateProductDto {
+export class CreateStripeProductDto {
   @IsNotEmpty()
   name: string;
 
@@ -34,8 +33,4 @@ export class CreateProductDto {
   @IsNotEmpty()
   @IsBoolean()
   active: boolean;
-
-  @IsNotEmpty()
-  @IsEnum(EcommerceGateway)
-  gateway: EcommerceGateway;
 }

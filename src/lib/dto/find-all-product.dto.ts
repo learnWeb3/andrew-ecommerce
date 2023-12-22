@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsOptional, Max, Min } from 'class-validator';
+import { EcommerceGateway } from '../interfaces/ecommerce-gateway.enum';
 
 export class FindAllProductDto {
   @IsOptional()
@@ -7,4 +8,8 @@ export class FindAllProductDto {
   @Max(1)
   @Min(0)
   active: number;
+
+  @IsOptional()
+  @IsEnum(EcommerceGateway)
+  gateway: EcommerceGateway;
 }

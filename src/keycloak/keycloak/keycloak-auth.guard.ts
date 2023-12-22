@@ -21,11 +21,16 @@ export const KeycloakAuthIgnore = Reflector.createDecorator<boolean>();
 export const KeycloakRoles =
   Reflector.createDecorator<KeycloakAvailableRoles[]>();
 
+export interface AuthenticatedUser {
+  email: string;
+  authorizationServerUserId: string;
+}
+
 export const AuthenticatedUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
+  (data: unknown, ctx: ExecutionContext): AuthenticatedUser => {
     const request = ctx.switchToHttp().getRequest<
       Request & {
-        user: { email: string; authorizationServerUserId: string };
+        user: AuthenticatedUser;
         roles: string[];
       }
     >();
@@ -55,7 +60,7 @@ export class KeycloakAuthGuard implements CanActivate {
 
       const request = context.switchToHttp().getRequest<
         Request & {
-          user: { email: string; authorizationServerUserId: string };
+          user: AuthenticatedUser;
           roles: string[];
         }
       >();

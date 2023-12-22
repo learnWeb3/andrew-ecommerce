@@ -1,6 +1,7 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { EcommerceGateway } from '../interfaces/ecommerce-gateway.enum';
 
-export class CreateCustomer {
+export class CreateCustomerDto {
   @IsNotEmpty()
   @IsString()
   @IsEmail()
@@ -8,4 +9,7 @@ export class CreateCustomer {
   @IsNotEmpty()
   @IsString()
   fullName: string;
+  @IsNotEmpty()
+  @IsEnum(EcommerceGateway)
+  gateway: EcommerceGateway;
 }

@@ -9,14 +9,15 @@ import {
   AndrewEcommerceCheckoutCompletedEvent,
 } from 'andrew-events-schema';
 import { KafkaProducerService } from 'src/kafka-producer/kafka-producer/kafka-producer.service';
-import { CreateCheckoutUrl } from 'src/lib/dto/create-checkout-url.dto';
-import { CreateProductDto } from 'src/lib/dto/create-product.dto';
-import { UpdateProductDto } from 'src/lib/dto/update-product.dto';
+import { CreateStripeCheckoutUrlDto } from 'src/lib/dto/create-stripe-checkout-url.dto';
+import { CreateStripeProductDto } from 'src/lib/dto/create-stripe-product.dto';
+import { UpdateStripeProductDto } from 'src/lib/dto/update-stripe-product.dto';
 import { BillingDiscount } from 'src/lib/interfaces/billing-discount.enum';
+import { EcommerceGateway } from 'src/lib/interfaces/ecommerce-gateway.enum';
 import Stripe from 'stripe';
 
 @Injectable()
-export class BillingService {
+export class StripeBillingService {
   private stripeClient: Stripe;
 
   constructor(
@@ -29,13 +30,17 @@ export class BillingService {
   }
 
   async createCheckoutUrl(
-    createCheckoutUrl: CreateCheckoutUrl,
+    createStripeCheckoutUrlDto: CreateStripeCheckoutUrlDto,
   ): Promise<{ url: string }> {
     const errors = [];
-    const stripeCustomer = await this.getCustomer(createCheckoutUrl.customer);
-    const stripeProduct = await this.getProduct(createCheckoutUrl.product);
+    const stripeCustomer = await this.getCustomer(
+      createStripeCheckoutUrlDto.customer,
+    );
+    const stripeProduct = await this.getProduct(
+      createStripeCheckoutUrlDto.product,
+    );
     const productPrices = await this.getPriceByProductId(
-      createCheckoutUrl.product,
+      createStripeCheckoutUrlDto.product,
     );
     const stripePriceId = productPrices?.[0]?.id || null;
 
@@ -55,9 +60,9 @@ export class BillingService {
 
     return await this.createCheckoutSession(
       stripePriceId,
-      createCheckoutUrl.quantity,
+      createStripeCheckoutUrlDto.quantity,
       stripeCustomer.id,
-      createCheckoutUrl?.metadata || {},
+      createStripeCheckoutUrlDto?.metadata || {},
     );
   }
 
@@ -87,12 +92,14 @@ export class BillingService {
           JSON.stringify(checkoutSessionCompleted, null, 4),
         );
         try {
+          // TO DO handle invoice payed in customer portal
           const newCheckoutCompletedEvent =
             new AndrewEcommerceCheckoutCompletedEvent(
               checkoutSessionCompleted.customer as string,
               {
                 contract: checkoutSessionCompleted.metadata.contract,
                 customer: checkoutSessionCompleted.customer as string,
+                gateway: EcommerceGateway.STRIPE,
               },
             );
           this.kafkaProducerService.emit(newCheckoutCompletedEvent);
@@ -108,12 +115,15 @@ export class BillingService {
           JSON.stringify(checkoutSessionExpired, null, 4),
         );
         try {
+          // TO DO handle subscription cancellation
+          // TO DO handle invoice cancellation in customer portal
           const newCheckoutCanceledEvent =
             new AndrewEcommerceCheckoutCanceledEvent(
               checkoutSessionExpired.customer as string,
               {
                 contract: checkoutSessionExpired.metadata.contract,
                 customer: checkoutSessionExpired.customer as string,
+                gateway: EcommerceGateway.STRIPE,
               },
             );
           this.kafkaProducerService.emit(newCheckoutCanceledEvent);
@@ -160,55 +170,66 @@ export class BillingService {
     return { received: true };
   }
 
-  async createProductWithPrice(createProductDto: CreateProductDto) {
+  async createProductWithPrice(
+    createStripeProductDto: CreateStripeProductDto,
+  ): Promise<{ id: string }> {
     const product = await this.createProduct({
-      name: createProductDto.name,
-      description: createProductDto.description,
+      name: createStripeProductDto.name,
+      description: createStripeProductDto.description,
       type: 'service',
     });
 
     const params = {
-      currency: createProductDto.currency,
+      currency: createStripeProductDto.currency,
       product: product.id,
-      active: true,
-      unit_amount_decimal: `${createProductDto.price * 100}`,
+      active: createStripeProductDto.active,
+      unit_amount_decimal: `${createStripeProductDto.price * 100}`,
     };
 
-    if (createProductDto.subscription) {
+    if (createStripeProductDto.subscription) {
       Object.assign(params, {
         recurring: {
-          interval: createProductDto.periodicity,
+          interval: createStripeProductDto.periodicity,
         },
       });
     }
     const price = await this.createPrice(params);
 
-    return await this.updateProduct(product.id, {
+    await this.updateProduct(product.id, {
       default_price: price.id,
     });
+
+    return { id: product.id };
   }
 
-  async updateProductAndPrice(id: string, updateProductDto: UpdateProductDto) {
+  async updateProductAndPrice(
+    id: string,
+    updateStripeProductDto: UpdateStripeProductDto,
+  ) {
     const updatedProduct = await this.updateProduct(id, {
-      name: updateProductDto.name,
-      description: updateProductDto.description,
+      name: updateStripeProductDto.name,
+      description: updateStripeProductDto.description,
     });
     const prices = await this.getPriceByProductId(id);
-    if (prices?.length) {
+    if (prices?.length && prices?.[0]?.id) {
+      await this.updateProduct(updatedProduct.id, {
+        default_price: null,
+      });
+
       await this.updatePrice(prices[0].id, { active: false });
     }
 
     const params = {
-      currency: updateProductDto.currency,
+      currency: updateStripeProductDto.currency,
       product: updatedProduct.id,
-      active: true,
-      unit_amount_decimal: `${updateProductDto.price * 100}`,
+      active: updateStripeProductDto.active,
+      unit_amount_decimal: `${updateStripeProductDto.price * 100}`,
     };
 
-    if (updateProductDto.subscription) {
+    if (updateStripeProductDto.subscription) {
       Object.assign(params, {
         recurring: {
-          interval: updateProductDto.periodicity,
+          interval: updateStripeProductDto.periodicity,
         },
       });
     }
