@@ -12,6 +12,7 @@ import {
 import Stripe from 'stripe';
 import { KafkaProducerService } from 'src/kafka-producer/kafka-producer/kafka-producer.service';
 import { CustomerService } from 'src/customer/customer/customer.service';
+import { SubscriptionService } from 'src/subscription/subscription/subscription.service';
 
 @Injectable()
 export class StripeEventService {
@@ -22,6 +23,8 @@ export class StripeEventService {
     private readonly kafkaProducerService: KafkaProducerService,
     @Inject(forwardRef(() => CustomerService))
     private readonly customerService: CustomerService,
+    @Inject(forwardRef(() => SubscriptionService))
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   onModuleInit() {
@@ -56,12 +59,19 @@ export class StripeEventService {
             gateway: EcommerceGateway.STRIPE,
             gatewayResourceId: checkoutSessionCompleted.customer as string,
           });
+          const subscription = await this.subscriptionService.create({
+            gateway: EcommerceGateway.STRIPE,
+            gatewayResourceId: checkoutSessionCompleted.subscription as string,
+            customer: ecommerceCustomer._id,
+            contract: checkoutSessionCompleted.metadata.contract,
+          });
           // TO DO handle invoice payed in customer portal
           const newCheckoutCompletedEvent =
             new AndrewEcommerceCheckoutCompletedEvent(
               checkoutSessionCompleted.customer as string,
               {
                 contract: checkoutSessionCompleted.metadata.contract,
+                subscription: subscription._id,
                 customer: ecommerceCustomer._id,
                 gateway: EcommerceGateway.STRIPE,
               },

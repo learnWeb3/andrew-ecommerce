@@ -248,4 +248,10 @@ export class StripeBillingService {
 
     return { url: session.url };
   }
+
+  async cancelSubscription(subscriptionId: string) {
+    return await this.stripeClient.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
+  }
 }
