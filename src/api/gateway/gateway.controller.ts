@@ -8,7 +8,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { StripeBillingService } from 'src/billing/billing/stripe-billing.service';
+import { StripeEventService } from 'src/event/stripe-event/stripe-event.service';
 import {
   KeycloakAuthGuard,
   KeycloakAuthIgnore,
@@ -18,8 +18,8 @@ import {
 @Controller('api/gateway')
 export class GatewayController {
   constructor(
-    @Inject(forwardRef(() => StripeBillingService))
-    private readonly stripeBillingService: StripeBillingService,
+    @Inject(forwardRef(() => StripeEventService))
+    private readonly stripeEventService: StripeEventService,
   ) {}
 
   @KeycloakAuthIgnore(true)
@@ -28,9 +28,6 @@ export class GatewayController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ) {
-    return this.stripeBillingService.handleWebhookEvents(
-      signature,
-      req.rawBody,
-    );
+    return this.stripeEventService.handleWebhookEvents(signature, req.rawBody);
   }
 }

@@ -1,29 +1,15 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  forwardRef,
-} from '@nestjs/common';
-import {
-  AndrewEcommerceCheckoutCanceledEvent,
-  AndrewEcommerceCheckoutCompletedEvent,
-} from 'andrew-events-schema';
-import { KafkaProducerService } from 'src/kafka-producer/kafka-producer/kafka-producer.service';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateStripeCheckoutUrlDto } from 'src/lib/dto/create-stripe-checkout-url.dto';
 import { CreateStripeProductDto } from 'src/lib/dto/create-stripe-product.dto';
 import { UpdateStripeProductDto } from 'src/lib/dto/update-stripe-product.dto';
 import { BillingDiscount } from 'src/lib/interfaces/billing-discount.enum';
-import { EcommerceGateway } from 'src/lib/interfaces/ecommerce-gateway.enum';
 import Stripe from 'stripe';
 
 @Injectable()
 export class StripeBillingService {
   private stripeClient: Stripe;
 
-  constructor(
-    @Inject(forwardRef(() => KafkaProducerService))
-    private readonly kafkaProducerService: KafkaProducerService,
-  ) {}
+  constructor() {}
 
   onModuleInit() {
     this.stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -64,110 +50,6 @@ export class StripeBillingService {
       stripeCustomer.id,
       createStripeCheckoutUrlDto?.metadata || {},
     );
-  }
-
-  async handleWebhookEvents(signature: string, data: Buffer) {
-    let event: Stripe.Event;
-
-    try {
-      event = this.stripeClient.webhooks.constructEvent(
-        data,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET,
-      );
-    } catch (err) {
-      console.error(`Webhook Error: ${err.message}`);
-      throw new BadRequestException(`Webhook Error: ${err.message}`);
-    }
-
-    console.log(event);
-
-    // Handle the event
-    switch (event.type) {
-      /** CHECKOUT EVENTS */
-      case 'checkout.session.completed':
-        const checkoutSessionCompleted = event.data.object;
-        console.log(
-          `received stripe session completed event`,
-          JSON.stringify(checkoutSessionCompleted, null, 4),
-        );
-        try {
-          // TO DO handle invoice payed in customer portal
-          const newCheckoutCompletedEvent =
-            new AndrewEcommerceCheckoutCompletedEvent(
-              checkoutSessionCompleted.customer as string,
-              {
-                contract: checkoutSessionCompleted.metadata.contract,
-                customer: checkoutSessionCompleted.customer as string,
-                gateway: EcommerceGateway.STRIPE,
-              },
-            );
-          this.kafkaProducerService.emit(newCheckoutCompletedEvent);
-        } catch (error) {
-          console.log(error);
-        }
-
-        break;
-      case 'checkout.session.expired':
-        const checkoutSessionExpired = event.data.object;
-        console.log(
-          `received stripe session expired event`,
-          JSON.stringify(checkoutSessionExpired, null, 4),
-        );
-        try {
-          // TO DO handle subscription cancellation
-          // TO DO handle invoice cancellation in customer portal
-          const newCheckoutCanceledEvent =
-            new AndrewEcommerceCheckoutCanceledEvent(
-              checkoutSessionExpired.customer as string,
-              {
-                contract: checkoutSessionExpired.metadata.contract,
-                customer: checkoutSessionExpired.customer as string,
-                gateway: EcommerceGateway.STRIPE,
-              },
-            );
-          this.kafkaProducerService.emit(newCheckoutCanceledEvent);
-        } catch (error) {
-          console.log(error);
-        }
-
-      // Then define and call a function to handle the event checkout.session.expired
-      // /** SUBSCRIPTION EVENTS */
-      // case 'subscription_schedule.aborted':
-      //   const subscriptionScheduleAborted = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.aborted
-      //   break;
-      // case 'subscription_schedule.canceled':
-      //   const subscriptionScheduleCanceled = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.canceled
-      //   break;
-      // case 'subscription_schedule.completed':
-      //   const subscriptionScheduleCompleted = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.completed
-      //   break;
-      // case 'subscription_schedule.created':
-      //   const subscriptionScheduleCreated = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.created
-      //   break;
-      // case 'subscription_schedule.expiring':
-      //   const subscriptionScheduleExpiring = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.expiring
-      //   break;
-      // case 'subscription_schedule.released':
-      //   const subscriptionScheduleReleased = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.released
-      //   break;
-      // case 'subscription_schedule.updated':
-      //   const subscriptionScheduleUpdated = event.data.object;
-      //   // Then define and call a function to handle the event subscription_schedule.updated
-      //   break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-        break;
-    }
-
-    // Respond to the webhook
-    return { received: true };
   }
 
   async createProductWithPrice(
