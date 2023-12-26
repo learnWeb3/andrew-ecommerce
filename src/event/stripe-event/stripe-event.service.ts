@@ -11,6 +11,7 @@ import {
 } from 'andrew-events-schema/andrew-ecommerce-events';
 import Stripe from 'stripe';
 import { KafkaProducerService } from 'src/kafka-producer/kafka-producer/kafka-producer.service';
+import { CustomerService } from 'src/customer/customer/customer.service';
 
 @Injectable()
 export class StripeEventService {
@@ -19,6 +20,8 @@ export class StripeEventService {
   constructor(
     @Inject(forwardRef(() => KafkaProducerService))
     private readonly kafkaProducerService: KafkaProducerService,
+    @Inject(forwardRef(() => CustomerService))
+    private readonly customerService: CustomerService,
   ) {}
 
   onModuleInit() {
@@ -49,13 +52,17 @@ export class StripeEventService {
           JSON.stringify(checkoutSessionCompleted, null, 4),
         );
         try {
+          const ecommerceCustomer = await this.customerService.findOne({
+            gateway: EcommerceGateway.STRIPE,
+            gatewayResourceId: checkoutSessionCompleted.customer as string,
+          });
           // TO DO handle invoice payed in customer portal
           const newCheckoutCompletedEvent =
             new AndrewEcommerceCheckoutCompletedEvent(
               checkoutSessionCompleted.customer as string,
               {
                 contract: checkoutSessionCompleted.metadata.contract,
-                customer: checkoutSessionCompleted.customer as string,
+                customer: ecommerceCustomer._id,
                 gateway: EcommerceGateway.STRIPE,
               },
             );
@@ -72,6 +79,10 @@ export class StripeEventService {
           JSON.stringify(checkoutSessionExpired, null, 4),
         );
         try {
+          const ecommerceCustomer = await this.customerService.findOne({
+            gateway: EcommerceGateway.STRIPE,
+            gatewayResourceId: checkoutSessionExpired.customer as string,
+          });
           // TO DO handle subscription cancellation
           // TO DO handle invoice cancellation in customer portal
           const newCheckoutCanceledEvent =
@@ -79,7 +90,7 @@ export class StripeEventService {
               checkoutSessionExpired.customer as string,
               {
                 contract: checkoutSessionExpired.metadata.contract,
-                customer: checkoutSessionExpired.customer as string,
+                customer: ecommerceCustomer._id,
                 gateway: EcommerceGateway.STRIPE,
               },
             );
