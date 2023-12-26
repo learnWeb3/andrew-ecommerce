@@ -44,13 +44,13 @@ export class StripeBillingService {
     );
     const stripePriceId = productPrices?.[0]?.id || null;
 
-    if (stripeCustomer) {
+    if (!stripeCustomer) {
       errors.push(`invalid stripe customer`);
     }
-    if (stripeProduct) {
+    if (!stripeProduct) {
       errors.push(`invalid stripe product`);
     }
-    if (stripePriceId) {
+    if (!stripePriceId) {
       errors.push(`invalid stripe price`);
     }
 

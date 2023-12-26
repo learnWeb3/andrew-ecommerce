@@ -9,7 +9,6 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { StripeBillingService } from 'src/billing/billing/stripe-billing.service';
-import { GatewayService } from 'src/gateway/gateway/gateway.service';
 import {
   KeycloakAuthGuard,
   KeycloakAuthIgnore,
@@ -19,8 +18,6 @@ import {
 @Controller('api/gateway')
 export class GatewayController {
   constructor(
-    @Inject(forwardRef(() => GatewayService))
-    private readonly gatewayService: GatewayService,
     @Inject(forwardRef(() => StripeBillingService))
     private readonly stripeBillingService: StripeBillingService,
   ) {}
