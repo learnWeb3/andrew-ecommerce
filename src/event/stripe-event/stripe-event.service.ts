@@ -93,7 +93,6 @@ export class StripeEventService {
             gateway: EcommerceGateway.STRIPE,
             gatewayResourceId: checkoutSessionExpired.customer as string,
           });
-          // TO DO handle subscription cancellation
           // TO DO handle invoice cancellation in customer portal
           const newCheckoutCanceledEvent =
             new AndrewEcommerceCheckoutCanceledEvent(
