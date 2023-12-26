@@ -47,6 +47,7 @@ export class SubscriptionService {
         await this.stripeBillingService.cancelSubscription(
           subscription.gatewayResourceId,
         );
+        break;
       default:
         console.log(`ecommerce gateway does not exists`);
         break;
