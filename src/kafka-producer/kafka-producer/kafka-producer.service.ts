@@ -16,16 +16,16 @@ export class KafkaProducerService {
     AndrewEcommerceCheckoutCanceledEvent | AndrewEcommerceCheckoutCompletedEvent
   > = new Subject();
   constructor() {
-    this.client = new Kafka({
-      clientId: process.env.KAFKA_CLIENT_ID + '_' + hostname(),
-      brokers: process.env.KAFKA_BROKERS.split(','),
-      sasl: {
-        mechanism: 'scram-sha-512',
-        username: process.env.KAFKA_SASL_USERNAME,
-        password: process.env.KAFKA_SASL_PASSWORD,
-      },
-    });
-    this.producer = this.client.producer({});
+    // this.client = new Kafka({
+    //   clientId: process.env.KAFKA_CLIENT_ID + '_' + hostname(),
+    //   brokers: process.env.KAFKA_BROKERS.split(','),
+    //   sasl: {
+    //     mechanism: 'scram-sha-512',
+    //     username: process.env.KAFKA_SASL_USERNAME,
+    //     password: process.env.KAFKA_SASL_PASSWORD,
+    //   },
+    // });
+    // this.producer = this.client.producer({});
   }
 
   emit(
@@ -36,23 +36,23 @@ export class KafkaProducerService {
     this.subject.next(event);
   }
 
-  onModuleInit() {
-    this.producer.connect().then(() => {
-      console.log(
-        `kafka producer successfully connected to kafka topic ${this.topic}`,
-      );
-      this.subject.subscribe({
-        next: (
-          event:
-            | AndrewEcommerceCheckoutCanceledEvent
-            | AndrewEcommerceCheckoutCompletedEvent,
-        ) => {
-          this.producer.send({
-            topic: this.topic,
-            messages: [{ key: event.source, value: JSON.stringify(event) }],
-          });
-        },
-      });
-    });
-  }
+  // onModuleInit() {
+  //   this.producer.connect().then(() => {
+  //     console.log(
+  //       `kafka producer successfully connected to kafka topic ${this.topic}`,
+  //     );
+  //     this.subject.subscribe({
+  //       next: (
+  //         event:
+  //           | AndrewEcommerceCheckoutCanceledEvent
+  //           | AndrewEcommerceCheckoutCompletedEvent,
+  //       ) => {
+  //         this.producer.send({
+  //           topic: this.topic,
+  //           messages: [{ key: event.source, value: JSON.stringify(event) }],
+  //         });
+  //       },
+  //     });
+  //   });
+  // }
 }
