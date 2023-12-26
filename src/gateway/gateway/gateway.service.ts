@@ -6,10 +6,12 @@ import {
 } from '@nestjs/common';
 import { StripeBillingService } from 'src/billing/billing/stripe-billing.service';
 import { CustomerService } from 'src/customer/customer/customer.service';
+import { CancelSubscriptionDto } from 'src/lib/dto/cancel-subscription.dto';
 import { CreateCheckoutUrlDto } from 'src/lib/dto/create-checkout-url.dto';
 import { CreateCustomerDto } from 'src/lib/dto/create-customer.dto';
 import { EcommerceGateway } from 'src/lib/interfaces/ecommerce-gateway.enum';
 import { ProductService } from 'src/product/product/product.service';
+import { SubscriptionService } from 'src/subscription/subscription/subscription.service';
 
 @Injectable()
 export class GatewayService {
@@ -20,7 +22,27 @@ export class GatewayService {
     private readonly productService: ProductService,
     @Inject(forwardRef(() => CustomerService))
     private readonly customerService: CustomerService,
+    @Inject(forwardRef(() => SubscriptionService))
+    private readonly subscriptionService: SubscriptionService,
   ) {}
+
+  async cancelSubscription(
+    cancelSubscriptionDto: CancelSubscriptionDto,
+  ): Promise<{ id: string }> {
+    switch (cancelSubscriptionDto.gateway) {
+      case EcommerceGateway.STRIPE:
+        const subscription = await this.subscriptionService.findOne({
+          customer: cancelSubscriptionDto.customer,
+          gateway: EcommerceGateway.STRIPE,
+          active: true,
+          contract: cancelSubscriptionDto.contract,
+        });
+        return this.subscriptionService.cancel(subscription._id);
+      default:
+        console.log(`gateway does not exists`);
+        throw new BadRequestException(`gateway does not exists`);
+    }
+  }
 
   async createCustomer(createCustomerDto: CreateCustomerDto) {
     switch (createCustomerDto.gateway) {

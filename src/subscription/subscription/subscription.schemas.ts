@@ -49,4 +49,14 @@ export class Subscription {
 
 const SubscriptionSchema = SchemaFactory.createForClass(Subscription);
 
+SubscriptionSchema.index(
+  {
+    customer: 1,
+    gateway: 1,
+    active: 1,
+    contract: 1,
+  },
+  { unique: true },
+);
+
 export { SubscriptionSchema };

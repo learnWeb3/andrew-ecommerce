@@ -37,7 +37,7 @@ export class SubscriptionService {
     return await newSubscription.save();
   }
 
-  async cancel(subscriptionId: string): Promise<SubscriptionDocument> {
+  async cancel(subscriptionId: string): Promise<{ id: string }> {
     const subscription = await this.findOne({ _id: subscriptionId });
     if (!subscription) {
       throw new BadRequestException(`invalid subscription id`);
@@ -53,6 +53,8 @@ export class SubscriptionService {
     }
 
     subscription.active = false;
-    return await subscription.save();
+    return await subscription.save().then((subscription) => ({
+      id: subscription._id,
+    }));
   }
 }
