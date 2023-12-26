@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Product, ProductDocument } from './product.schemas';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { CreateProductDto } from 'src/lib/dto/create-product.dto';
 import { FindAllProductDto } from 'src/lib/dto/find-all-product.dto';
 import {
@@ -25,6 +25,12 @@ export class ProductService {
     @Inject(forwardRef(() => StripeBillingService))
     private readonly stripeBillingService: StripeBillingService,
   ) {}
+
+  async exists(filters: FilterQuery<Product>): Promise<boolean> {
+    return this.productModel
+      .exists(filters)
+      .then((record) => (record?._id ? true : false));
+  }
 
   async findAll(
     findAllProductDto: FindAllProductDto,
@@ -72,10 +78,8 @@ export class ProductService {
     };
   }
 
-  findOne(productId: string): Promise<ProductDocument> {
-    return this.productModel.findOne({
-      _id: productId,
-    });
+  findOne(filters: FilterQuery<Product>): Promise<ProductDocument> {
+    return this.productModel.findOne(filters);
   }
 
   async update(
@@ -112,6 +116,15 @@ export class ProductService {
   }
 
   async create(createProductDto: CreateProductDto): Promise<ProductDocument> {
+    const exists = await this.exists({
+      gateway: createProductDto.gateway,
+      name: createProductDto.name,
+    });
+    if (exists) {
+      throw new BadRequestException(
+        `product already exists with name ${createProductDto.name} and gateway ${createProductDto.gateway}`,
+      );
+    }
     let gatewayResource: { id: string } = null;
     switch (createProductDto.gateway) {
       case EcommerceGateway.STRIPE:

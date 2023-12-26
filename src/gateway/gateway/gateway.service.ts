@@ -40,9 +40,9 @@ export class GatewayService {
     const errors = [];
     switch (createCheckoutUrlDto.gateway) {
       case EcommerceGateway.STRIPE:
-        const product = await this.productService.findOne(
-          createCheckoutUrlDto.product,
-        );
+        const product = await this.productService.findOne({
+          _id: createCheckoutUrlDto.product,
+        });
         const customer = await this.customerService.findOne({
           email: createCheckoutUrlDto.customerEmail,
           gateway: EcommerceGateway.STRIPE,

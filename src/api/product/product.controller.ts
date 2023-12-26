@@ -42,7 +42,7 @@ export class ProductController {
   @KeycloakAuthIgnore(true)
   @Get(':id')
   findOne(@Param('id') productId: string) {
-    return this.productService.findOne(productId);
+    return this.productService.findOne({ _id: productId });
   }
 
   @KeycloakRoles([KeycloakAvailableRoles.SUPERADMIN])

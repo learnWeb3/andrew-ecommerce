@@ -67,4 +67,14 @@ export class Product {
   active: boolean;
 }
 
-export const ProductSchema = SchemaFactory.createForClass(Product);
+const ProductSchema = SchemaFactory.createForClass(Product);
+
+ProductSchema.index(
+  {
+    name: 1,
+    gateway: 1,
+  },
+  { unique: true },
+);
+
+export { ProductSchema };
