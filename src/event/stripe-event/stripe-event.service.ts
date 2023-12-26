@@ -8,6 +8,7 @@ import { EcommerceGateway } from 'src/lib/interfaces/ecommerce-gateway.enum';
 import {
   AndrewEcommerceCheckoutCanceledEvent,
   AndrewEcommerceCheckoutCompletedEvent,
+  AndrewEcommerceSubscriptionCanceledEvent,
   AndrewEcommerceSubscriptionErrorEvent,
   AndrewEcommerceSubscriptionErrorType,
 } from 'andrew-events-schema/andrew-ecommerce-events';
@@ -112,22 +113,22 @@ export class StripeEventService {
 
         break;
       case 'invoice.payment_failed':
-        const paymentFailed = event.data.object;
+        const invoicePaymentFailed = event.data.object;
         console.log(
           `received stripe invoice payment failed event`,
-          JSON.stringify(paymentFailed, null, 4),
+          JSON.stringify(invoicePaymentFailed, null, 4),
         );
         try {
           const ecommerceCustomer = await this.customerService.findOne({
             gateway: EcommerceGateway.STRIPE,
-            gatewayResourceId: paymentFailed.customer as string,
+            gatewayResourceId: invoicePaymentFailed.customer as string,
           });
           const subscription = await this.subscriptionService.findOne({
             gateway: EcommerceGateway.STRIPE,
-            gatewayResourceId: paymentFailed.subscription as string,
+            gatewayResourceId: invoicePaymentFailed.subscription as string,
           });
           // TO DO handle invoice cancellation in customer portal
-          const newCheckoutCanceledEvent =
+          const newSubscriptionErrorEvent =
             new AndrewEcommerceSubscriptionErrorEvent(
               ecommerceCustomer._id as string,
               {
@@ -138,17 +139,45 @@ export class StripeEventService {
                 subscription: subscription._id,
               },
             );
-          this.kafkaProducerService.emit(newCheckoutCanceledEvent);
+          this.kafkaProducerService.emit(newSubscriptionErrorEvent);
         } catch (error) {
           console.log(error);
         }
 
         break;
       case 'customer.subscription.deleted':
+        const subscriptionDeleted = event.data.object;
         console.log(
-          `customer removed its subscription cancel/pause the contract`,
+          `received stripe invoice payment failed event`,
+          JSON.stringify(subscriptionDeleted, null, 4),
         );
+        try {
+          const ecommerceCustomer = await this.customerService.findOne({
+            gateway: EcommerceGateway.STRIPE,
+            gatewayResourceId: subscriptionDeleted.customer as string,
+          });
+          const subscription = await this.subscriptionService.findOne({
+            gateway: EcommerceGateway.STRIPE,
+            gatewayResourceId: subscriptionDeleted.id as string,
+          });
+          // TO DO handle invoice cancellation in customer portal
+          const newSubscriptionCanceledEvent =
+            new AndrewEcommerceSubscriptionCanceledEvent(
+              ecommerceCustomer._id as string,
+              {
+                contract: subscription.contract,
+                customer: ecommerceCustomer._id,
+                gateway: EcommerceGateway.STRIPE,
+                subscription: subscription._id,
+              },
+            );
+          this.kafkaProducerService.emit(newSubscriptionCanceledEvent);
+        } catch (error) {
+          console.log(error);
+        }
+
         break;
+
       default:
         console.log(`Unhandled event type ${event.type}`);
         break;
