@@ -229,7 +229,7 @@ export class StripeBillingService {
     const secondOfNextMonthTimestamp = new Date(
       currentMonth === 11 ? currentYear + 1 : currentYear,
       nextMonth,
-      2,
+      +process.env.BILLING_DAY_OF_THE_MONTH,
     ).getTime();
     const session = await this.stripeClient.checkout.sessions.create({
       billing_address_collection: 'required',
