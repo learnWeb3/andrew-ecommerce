@@ -226,10 +226,10 @@ export class StripeBillingService {
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-    const firstOfNextMonthTimestamp = new Date(
+    const secondOfNextMonthTimestamp = new Date(
       currentMonth === 11 ? currentYear + 1 : currentYear,
       nextMonth,
-      1,
+      2,
     ).getTime();
     const session = await this.stripeClient.checkout.sessions.create({
       billing_address_collection: 'required',
@@ -238,7 +238,7 @@ export class StripeBillingService {
       mode: 'subscription',
       success_url: `${process.env.FRONTEND_ROOT_URL_SUCCESS_PAYMENT_CALLBACK}/?&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_ROOT_URL_CANCEL_PAYMENT_CALLBACK}?canceled=true`,
-      subscription_data: { billing_cycle_anchor: firstOfNextMonthTimestamp },
+      subscription_data: { billing_cycle_anchor: secondOfNextMonthTimestamp },
       metadata,
     });
 
