@@ -2,7 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateStripeCheckoutUrlDto } from 'src/lib/dto/create-stripe-checkout-url.dto';
 import { CreateStripeProductDto } from 'src/lib/dto/create-stripe-product.dto';
 import { UpdateStripeProductDto } from 'src/lib/dto/update-stripe-product.dto';
-import { BillingDiscount } from 'src/lib/interfaces/billing-discount.enum';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -207,27 +206,14 @@ export class StripeBillingService {
     return await this.stripeClient.products.list(params);
   }
 
-  async createCoupon(billingDiscount: BillingDiscount) {
-    await this.stripeClient.coupons.create({
-      duration: 'forever',
-      id: '',
-      percent_off: billingDiscount,
+  async applyDiscount(subscriptionId: string, discountPercent: number) {
+    const coupon = await this.stripeClient.coupons.create({
+      duration: 'once',
+      percent_off: discountPercent,
     });
-  }
-
-  async getAllCounpons(
-    filters: Stripe.CouponListParams,
-    limit: number,
-    startAfterItemId: string = null,
-  ) {
-    const params = {
-      limit,
-      ...filters,
-    };
-    if (startAfterItemId) {
-      Object.assign(params, { starting_after: startAfterItemId });
-    }
-    return await this.stripeClient.coupons.list(params);
+    return await this.stripeClient.subscriptions.update(subscriptionId, {
+      coupon: coupon.id,
+    });
   }
 
   async createCheckoutSession(

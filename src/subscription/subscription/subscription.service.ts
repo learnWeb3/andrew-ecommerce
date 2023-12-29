@@ -37,6 +37,29 @@ export class SubscriptionService {
     return await newSubscription.save();
   }
 
+  async applyDiscount(
+    subscriptionId: string,
+    discountPercent: number,
+  ): Promise<{ id: string }> {
+    const subscription = await this.findOne({ _id: subscriptionId });
+    if (!subscription) {
+      throw new BadRequestException(`invalid subscription id`);
+    }
+    switch (subscription.gateway) {
+      case EcommerceGateway.STRIPE:
+        await this.stripeBillingService.applyDiscount(
+          subscription.gatewayResourceId,
+          discountPercent,
+        );
+        break;
+      default:
+        console.log(`ecommerce gateway does not exists`);
+        break;
+    }
+
+    return { id: subscriptionId };
+  }
+
   async cancel(subscriptionId: string): Promise<{ id: string }> {
     const subscription = await this.findOne({ _id: subscriptionId });
     if (!subscription) {

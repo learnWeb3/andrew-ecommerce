@@ -148,7 +148,7 @@ export class StripeEventService {
       case 'customer.subscription.deleted':
         const subscriptionDeleted = event.data.object;
         console.log(
-          `received stripe invoice payment failed event`,
+          `received stripe subscription deleted event`,
           JSON.stringify(subscriptionDeleted, null, 4),
         );
         try {
