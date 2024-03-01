@@ -225,12 +225,31 @@ export class StripeBillingService {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
-    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-    const secondOfNextMonthTimestamp = new Date(
-      currentMonth === 11 ? currentYear + 1 : currentYear,
-      nextMonth,
-      +process.env.BILLING_DAY_OF_THE_MONTH,
+    const currentDay = currentDate.getDate();
+    const currentHours = currentDate.getHours();
+    const currentMinutes = currentDate.getMinutes();
+    const currentSeconds = currentDate.getSeconds();
+    const billingDayOfTheMonth = +process.env.BILLING_DAY_OF_THE_MONTH;
+    const billingMonth =
+      currentDay > billingDayOfTheMonth
+        ? currentMonth === 11
+          ? 0
+          : currentMonth + 1
+        : currentMonth;
+    let billingCycleAnchor = new Date(
+      currentMonth === 11 && currentDay > billingDayOfTheMonth
+        ? currentYear + 1
+        : currentYear,
+      billingMonth,
+      billingDayOfTheMonth,
+      currentHours,
+      currentMinutes,
+      currentSeconds + 1,
     ).getTime();
+    billingCycleAnchor = +`${billingCycleAnchor}`.slice(
+      0,
+      `${billingCycleAnchor}`.length - 3,
+    );
     const session = await this.stripeClient.checkout.sessions.create({
       billing_address_collection: 'required',
       line_items: [{ price: priceId, quantity }],
@@ -238,7 +257,10 @@ export class StripeBillingService {
       mode: 'subscription',
       success_url: `${process.env.FRONTEND_ROOT_URL_SUCCESS_PAYMENT_CALLBACK}/?&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_ROOT_URL_CANCEL_PAYMENT_CALLBACK}?canceled=true`,
-      subscription_data: { billing_cycle_anchor: secondOfNextMonthTimestamp },
+      subscription_data: {
+        billing_cycle_anchor: billingCycleAnchor,
+        proration_behavior: 'create_prorations',
+      },
       metadata,
     });
 
